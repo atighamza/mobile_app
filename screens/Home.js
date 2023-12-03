@@ -6,7 +6,8 @@ import Groupe from "./HomeScreens/Groupe";
 import { createMaterialBottomTabNavigator } from "@react-navigation/material-bottom-tabs";
 const Tab = createMaterialBottomTabNavigator();
 
-export default function Home() {
+export default function Home(props) {
+  //const currentId = props.currentId;
   return (
     <Tab.Navigator>
       <Tab.Screen name="listprofils" component={ListProfils} />

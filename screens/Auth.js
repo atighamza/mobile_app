@@ -23,7 +23,10 @@ export default function Auth({ navigation }) {
     console.log("email", email, " password : ", password);
     auth
       .signInWithEmailAndPassword(email, password)
-      .then((res) => navigation.navigate("home"))
+      .then((res) => {
+        const currentId = auth.currentUser.uid;
+        navigation.navigate("home", { currentId });
+      })
       .catch((err) => alert(err));
   };
   return (
