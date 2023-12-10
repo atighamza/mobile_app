@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import React, { useState, useContext, useEffect } from "react";
+import { AuthContext } from "../AuthProvider";
 import firebase from "../config";
 import {
   Alert,
@@ -17,14 +18,21 @@ const userCredentials = () => {
 
 const auth = firebase.auth();
 export default function Auth({ navigation }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("fatmafatou3@gmail.com");
+  const [password, setPassword] = useState("123456");
+  const { currentUserID, setCurrentUserID } = useContext(AuthContext);
+  useEffect(() => {
+    /*if (true) {
+      navigation.navigate("home");
+    }*/
+  }, []);
   const signIn = () => {
     console.log("email", email, " password : ", password);
     auth
       .signInWithEmailAndPassword(email, password)
       .then((res) => {
         const currentId = auth.currentUser.uid;
+        setCurrentUserID(currentId);
         navigation.navigate("home", { currentId });
       })
       .catch((err) => alert(err));
@@ -35,12 +43,14 @@ export default function Auth({ navigation }) {
         <Text style={{ color: "white", fontSize: 30 }}>Authentification</Text>
         <TextInput
           style={styles.text_input}
+          value={email}
           placeholder="Email"
           placeholderTextColor="#FFF"
           onChangeText={(text) => setEmail(text)}
         />
         <TextInput
           style={styles.text_input}
+          value={password}
           placeholder="Password"
           placeholderTextColor="#FFF"
           onChangeText={(text) => setPassword(text)}
