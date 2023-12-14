@@ -1,24 +1,16 @@
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import React from "react";
 
-export default function ProfilItem({
-  firstName,
-  lastName,
-  num,
-  url,
-  id,
-  setClickedProfile,
-  setIsVisible,
-  navigate,
-}) {
+export default function GroupItem({ groupName, url, id, navigate }) {
   return (
     <View>
       <TouchableOpacity
         onPress={() => {
-          //setClickedProfile({ firstName, lastName, num, url, id });
-          //setIsVisible(true);
-          navigate.navigate("chat", {
-            clickedProfile: { secondId: id, firstName, lastName, url },
+          console.log(id);
+          navigate.navigate("groupChat", {
+            groupName,
+            groupId: id,
+            url,
           });
         }}
         style={{
@@ -37,9 +29,7 @@ export default function ProfilItem({
             borderRadius: 50,
           }}
         />
-        <Text style={{ fontSize: 18, marginBottom: 10 }}>
-          {firstName} {lastName}
-        </Text>
+        <Text style={{ fontSize: 18, marginBottom: 10 }}>{groupName}</Text>
       </TouchableOpacity>
     </View>
   );

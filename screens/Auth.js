@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Storage } from "expo-storage";
 
 const userCredentials = () => {
   Alert.alert();
@@ -22,17 +23,37 @@ export default function Auth({ navigation }) {
   const [password, setPassword] = useState("123456");
   const { currentUserID, setCurrentUserID } = useContext(AuthContext);
   useEffect(() => {
-    /*if (true) {
-      navigation.navigate("home");
-    }*/
+    const userLoggedIn = async () => {
+      const item = await Storage.getItem({ key: "currentUserID" });
+      if (item) {
+        setCurrentUserID(item);
+        navigation.navigate("home", { item });
+      }
+      console.log("user login :", item);
+    };
+
+    userLoggedIn();
   }, []);
-  const signIn = () => {
+  const signIn = async () => {
     console.log("email", email, " password : ", password);
+    if (!email) {
+      alert("email is required");
+      return;
+    }
+    if (!password) {
+      alert("password is required");
+      return;
+    }
     auth
       .signInWithEmailAndPassword(email, password)
-      .then((res) => {
+      .then(async (res) => {
+        console.log(res);
         const currentId = auth.currentUser.uid;
         setCurrentUserID(currentId);
+        await Storage.setItem({
+          key: "currentUserID",
+          value: currentId,
+        });
         navigation.navigate("home", { currentId });
       })
       .catch((err) => alert(err));

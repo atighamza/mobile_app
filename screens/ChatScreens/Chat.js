@@ -8,15 +8,18 @@ import {
   Button,
   Image,
   KeyboardAvoidingView,
+  TouchableOpacity,
 } from "react-native";
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../AuthProvider";
 //import { Button } from "react-native-paper";
 import firebase from "../../config";
-import * as Notifications from "expo-notifications";
-import { AntDesign } from "@expo/vector-icons";
+import { pickMessageImage, imageToBlob } from "../../pickImage";
+
+import { AntDesign, Ionicons, FontAwesome } from "@expo/vector-icons";
 
 const database = firebase.database();
+const storage = firebase.storage();
 
 export default function Chat(props) {
   const { secondId, firstName, lastName, url } =
@@ -24,6 +27,9 @@ export default function Chat(props) {
   const { currentUserID, setCurrentUserID } = useContext(AuthContext);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const [imageUrl, setImageUrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
 
   const ref_chats = database.ref().child("chats");
   const chatid =
@@ -31,31 +37,77 @@ export default function Chat(props) {
       ? currentUserID + secondId
       : secondId + currentUserID;
   const ref_un_chat = ref_chats.child(chatid);
+
+  //send message function
   const sendMessage = async () => {
+    await ref_un_chat.child("typing").set(false);
+
+    let image = null;
+    if (imageUrl) {
+      image = await upload_Image();
+    }
+    console.log("sending");
     const key = ref_chats.push().key;
     await ref_un_chat.child("message" + key).set({
       sender: currentUserID,
       receiver: secondId,
       date: new Date().toISOString(),
       msg: message,
+      image,
     });
     console.log("message sent");
+    setMessage("");
+    setImageUrl(null);
+    setIsLoading(false);
+    setIsTyping(false);
+  };
+
+  //upload image
+  const upload_Image = async () => {
+    const key = ref_chats.push().key;
+    console.log("blob : ", imageUrl);
+    const blob = await imageToBlob(imageUrl);
+    const ref = storage.ref("images").child(`image${key}.jpg`);
+    await ref.put(blob);
+    let url = await ref.getDownloadURL();
+    console.log("url : ", url);
+    return url;
   };
 
   useEffect(() => {
     const fetchMessages = async () => {
       ref_un_chat.on("child_added", (snapshot) => {
         const newMessage = { ...snapshot.val(), key: snapshot.key };
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-        // Add notification logic here
+        setMessages((prevMessages) => {
+          const sortedMessages = [...prevMessages, newMessage].sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          return sortedMessages;
+        });
       });
     };
-    Notifications.requestPermissionsAsync();
     fetchMessages();
+
     console.log("id chat :", currentUserID);
     console.log("clicked id  :", secondId);
   }, []);
 
+  //check user is typing
+  useEffect(() => {
+    const typingRef = ref_un_chat.child("typing");
+
+    const handleTyping = (snapshot) => {
+      setIsTyping(snapshot.val());
+    };
+
+    // Listen for typing events
+    typingRef.on("value", handleTyping);
+
+    // Clean up the event listener
+    return () => {
+      typingRef.off("value", handleTyping);
+    };
+  }, [ref_un_chat]);
   return (
     <View style={styles.container}>
       <View
@@ -97,6 +149,7 @@ export default function Chat(props) {
         data={messages}
         style={{ height: 400 }}
         keyExtractor={(item) => item.key}
+        inverted={true}
         renderItem={({ item }) => (
           <View
             style={
@@ -109,18 +162,100 @@ export default function Chat(props) {
               {item.sender == currentUserID ? "Me" : `${firstName} ${lastName}`}
             </Text>
             <Text style={styles.messageText}>{item.msg}</Text>
+            {item.image && (
+              <Image
+                source={{ uri: item.image }}
+                style={{ height: 100, width: 100 }}
+              />
+            )}
             <Text>{new Date(item.date).toLocaleString()}</Text>
           </View>
         )}
       />
-      <View style={{ flex: 1, flexDirection: "column" }}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type your message..."
-          value={message}
-          onChangeText={(text) => setMessage(text)}
-        />
-        <Button title="Send" onPress={sendMessage} />
+      {isTyping && <Text>typing...</Text>}
+
+      <View style={styles.container_bottom}>
+        <View
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: 2,
+            position: "relative",
+            alignSelf: "center",
+          }}
+        >
+          {imageUrl && (
+            <>
+              <Image
+                source={{ uri: imageUrl }}
+                style={{
+                  width: 60,
+                  height: 60,
+                }}
+              />
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                underlayColor="#fff"
+                onPress={() => setImageUrl(null)}
+              >
+                <Text style={{ color: "white" }}>X</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 10,
+            paddingTop: 2,
+          }}
+        >
+          <TouchableOpacity
+            onPress={async () => {
+              let uri = await pickMessageImage();
+              setImageUrl(uri);
+            }}
+          >
+            <FontAwesome
+              name="image"
+              size={24}
+              color="black"
+              style={styles.icon}
+            />
+          </TouchableOpacity>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Type your message..."
+            value={message}
+            onChangeText={(text) => {
+              setIsTyping(true);
+              setMessage(text);
+            }}
+          />
+          {(message || imageUrl) && (
+            <>
+              {isLoading ? (
+                <Image
+                  source={require("../../assets/loading.gif")}
+                  style={{ height: 24, width: 24 }}
+                />
+              ) : (
+                <TouchableOpacity onPress={sendMessage}>
+                  <Ionicons
+                    name="send-sharp"
+                    size={24}
+                    color="black"
+                    style={styles.icon}
+                  />
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -159,11 +294,34 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
   },
+  container_bottom: {
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
+    paddingBottom: 10,
+  },
   input: {
+    flex: 1,
+    height: 40,
     borderWidth: 1,
     borderColor: "#ccc",
-    padding: 10,
-    marginBottom: 10,
-    marginHorizontal: 5,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    marginRight: 10,
+  },
+  icon: {
+    marginHorizontal: 7,
+  },
+  removeImageButton: {
+    height: 20,
+    width: 20,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 50,
+    backgroundColor: "#ccc",
+    position: "absolute",
+    top: -5,
+    right: -10,
   },
 });

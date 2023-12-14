@@ -6,6 +6,7 @@ import {
   Button,
   Image,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { useEffect, useState, useContext } from "react";
 import React from "react";
@@ -14,11 +15,14 @@ import firebase from "../../config";
 import { pickImage, imageToBlob } from "../../pickImage";
 import { AuthContext } from "../../AuthProvider";
 import { useIsFocused } from "@react-navigation/native";
+import { Storage } from "expo-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const database = firebase.database();
 const storage = firebase.storage();
+const auth = firebase.auth();
 
-export default function MyAccount() {
+export default function MyAccount({ navigation }) {
   //to check if screen is focused (if true reload the user data )
   const screenIsFocused = useIsFocused();
   const [nom, setNom] = useState("");
@@ -27,7 +31,7 @@ export default function MyAccount() {
   const [src, setSrc] = useState(null);
   const [imageURL, setImageURL] = useState("");
   const [currentProfile, setCurrentProfile] = useState(null);
-  const { currentUserID } = useContext(AuthContext);
+  const { currentUserID, setCurrentUserID } = useContext(AuthContext);
 
   const updateProfile = async () => {
     console.log("updating profile");
@@ -52,14 +56,32 @@ export default function MyAccount() {
     await ref_profil.update({
       nom,
       prenom,
-      numero,
       url,
     });
+    Alert.alert("Updated", " account updated successfully", [
+      {
+        text: "ok",
+        onPress: () => {},
+        style: "cancel",
+      },
+    ]);
     console.log("updated ", existingProfileKey);
   };
   const createProfile = async () => {
     console.log("creating profile");
+    if (!nom) {
+      alert("first name is required");
+      return;
+    }
 
+    if (!prenom) {
+      alert("last name is required");
+      return;
+    }
+    if (!src) {
+      alert("Image is required");
+      return;
+    }
     let url = await upload_Image(src);
     console.log("image uploaded");
     const ref_profils = database.ref("profile");
@@ -70,7 +92,6 @@ export default function MyAccount() {
       id: currentUserID,
       nom,
       prenom,
-      numero,
       url,
     });
     console.log("created");
@@ -94,6 +115,33 @@ export default function MyAccount() {
     return url;
   };
 
+  const showConfirmDialog = () => {
+    Alert.alert("Sign out", "are you sure to sign out ?", [
+      {
+        text: "Cancel",
+        onPress: () => {},
+        style: "cancel",
+      },
+      {
+        text: "OK",
+        onPress: () => {
+          signOut();
+        },
+      },
+    ]);
+  };
+  const signOut = async () => {
+    auth
+      .signOut()
+      .then(async () => {
+        await Storage.removeItem({ key: "currentUserID" });
+        setCurrentUserID(null);
+        navigation.replace("auth");
+      })
+      .catch((error) => {
+        console.log("signout failed");
+      });
+  };
   useEffect(() => {
     const fetchData = async () => {
       database.ref("profile").on("value", (snapshot) => {
@@ -112,11 +160,19 @@ export default function MyAccount() {
     console.log("user id :", currentUserID);
     fetchData();
   }, [screenIsFocused]);
-  useEffect(() => {
-    console.log("src changed : ", src);
-  }, [src]);
+
   return (
     <View style={styles.container}>
+      <TouchableOpacity
+        onPress={showConfirmDialog}
+        style={{
+          position: "absolute",
+          top: 50,
+          right: 20,
+        }}
+      >
+        <MaterialCommunityIcons name="logout" size={40} color="black" />
+      </TouchableOpacity>
       <Text style={{ fontSize: 30 }}>MyAccount</Text>
       <TouchableOpacity
         onPress={async () => {
@@ -142,24 +198,17 @@ export default function MyAccount() {
       </TouchableOpacity>
       <TextInput
         style={styles.text_input}
-        placeholder="Nom"
+        placeholder="first name"
         placeholderTextColor="#FFF"
         value={nom}
         onChangeText={(text) => setNom(text)}
       />
       <TextInput
         style={styles.text_input}
-        placeholder="Prenom"
+        placeholder="last name"
         placeholderTextColor="#FFF"
         value={prenom}
         onChangeText={(text) => setPrenom(text)}
-      />
-      <TextInput
-        style={styles.text_input}
-        placeholder="Numero"
-        placeholderTextColor="#FFF"
-        value={numero}
-        onChangeText={(text) => setNumero(text)}
       />
       <Button title="Create" onPress={() => handleClickButton()} />
     </View>

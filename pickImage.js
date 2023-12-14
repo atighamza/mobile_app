@@ -16,6 +16,19 @@ export const pickImage = async () => {
     return uri;
   }
 };
+export const pickMessageImage = async () => {
+  // No permissions request is necessary for launching the image library
+  let result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.All,
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 1,
+  });
+  if (!result.canceled) {
+    const uri = result.assets[0].uri;
+    return uri;
+  }
+};
 export const imageToBlob = async (uri) => {
   const blob = await new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

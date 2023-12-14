@@ -9,13 +9,25 @@ import {
 } from "react-native-paper";
 import firebase from "../config";
 import useAuth from "../hooks/useAuth";
-import { FlatList, View, Image, Button, StyleSheet } from "react-native";
+import {
+  FlatList,
+  View,
+  Image,
+  Button,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
+import { Entypo } from "@expo/vector-icons";
+import { pickImage, imageToBlob } from "../pickImage";
 const database = firebase.database();
+const storage = firebase.storage();
 
 export default function GroupModal({ modalVisible, setModalVisible }) {
   const [profilsData, setProfilsData] = useState([]);
   const [selectedProfiles, setSelectedProfiles] = useState([]);
   const [groupName, setGroupName] = useState("");
+  const [imageUrl, setImageUrl] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [currentUserID, setCurrentUserID] = useAuth();
 
@@ -31,7 +43,19 @@ export default function GroupModal({ modalVisible, setModalVisible }) {
     }
   };
 
+  const upload_Image = async () => {
+    const key = database.ref("groupChats").push().key;
+    console.log("blob : ", imageUrl);
+    const blob = await imageToBlob(imageUrl);
+    const ref = storage.ref("images").child(`image${key}.jpg`);
+    await ref.put(blob);
+    let url = await ref.getDownloadURL();
+    console.log("url : ", url);
+    return url;
+  };
+
   const createGroupeChat = async () => {
+    setIsLoading(true);
     // Create a group chat in Firebase and add selected profiles
     const groupChatRef = database.ref("groupChats").push();
     const groupChatId = groupChatRef.key;
@@ -46,6 +70,11 @@ export default function GroupModal({ modalVisible, setModalVisible }) {
 
     //Add group name
     groupChatRef.child("groupName").set(groupName);
+
+    //Add group image
+    let image = await upload_Image();
+    await groupChatRef.child("groupImage").set(image);
+    setIsLoading(false);
     setModalVisible(false);
   };
 
@@ -64,13 +93,15 @@ export default function GroupModal({ modalVisible, setModalVisible }) {
     };
     fetchProfils();
   }, []);
-  useEffect(() => {
-    console.log(selectedProfiles);
-  }, [selectedProfiles]);
+
   return (
     <Modal
       visible={modalVisible}
-      onDismiss={() => setModalVisible(false)}
+      onDismiss={() => {
+        if (!isLoading) {
+          setModalVisible(false);
+        }
+      }}
       contentContainerStyle={{
         backgroundColor: "white",
         padding: 20,
@@ -78,6 +109,13 @@ export default function GroupModal({ modalVisible, setModalVisible }) {
         marginHorizontal: 15,
       }}
     >
+      <TextInput
+        value={groupName}
+        placeholder="group name ..."
+        onChangeText={(text) => setGroupName(text)}
+        mode="outlined"
+        style={{ backgroundColor: "white", marginBottom: 10 }}
+      />
       <FlatList
         data={profilsData}
         renderItem={({ item }) => (
@@ -102,15 +140,42 @@ export default function GroupModal({ modalVisible, setModalVisible }) {
           </View>
         )}
       />
-
-      <TextInput
-        value={groupName}
-        placeholder="group name ..."
-        onChangeText={(text) => setGroupName(text)}
-        mode="outlined"
-        style={{ backgroundColor: "white", marginBottom: 10 }}
-      />
-      <Button title="create" onPress={() => createGroupeChat()} />
+      <View
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-around",
+          marginBottom: 30,
+        }}
+      >
+        <TouchableOpacity
+          onPress={async () => {
+            let uri = await pickImage();
+            setImageUrl(uri);
+          }}
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>Add image :</Text>
+          <Entypo name="upload" size={24} color="black" />
+        </TouchableOpacity>
+        {imageUrl && (
+          <Image source={{ uri: imageUrl }} style={{ width: 70, height: 70 }} />
+        )}
+      </View>
+      {isLoading ? (
+        <Image
+          source={require("../assets/loading.gif")}
+          style={{ height: 24, width: 24 }}
+        />
+      ) : (
+        <Button title="create" onPress={() => createGroupeChat()} />
+      )}
     </Modal>
   );
 }

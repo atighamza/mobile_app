@@ -40,7 +40,7 @@ export default function ListProfils({ navigation }) {
         paddingTop: 30,
       }}
     >
-      <Text style={{ fontSize: 30 }}>List profils</Text>
+      <Text style={{ fontSize: 30, marginBottom: 10 }}>List profils</Text>
       <FlatList
         style={{
           width: "95%",

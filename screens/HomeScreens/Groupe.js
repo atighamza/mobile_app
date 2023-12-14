@@ -2,7 +2,7 @@ import { View, Text, Button, FlatList, TouchableOpacity } from "react-native";
 import { PaperProvider, Portal } from "react-native-paper";
 import React, { useEffect, useState } from "react";
 import GroupModal from "../../components/GroupModal";
-
+import GroupItem from "./GroupItem";
 import firebase from "../../config";
 import useAuth from "../../hooks/useAuth";
 const database = firebase.database();
@@ -10,22 +10,22 @@ export default function Groupe({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [groupsData, setGroupsData] = useState([]);
   const [currentUserID, setCurrentUserID] = useAuth();
+  const ref_group = database.ref().child("groupChats");
   useEffect(() => {
     const fetchGroups = async () => {
-      database.ref("groupChats").on("child_added", (group) => {
-        const membersArray = Object.keys(group.val().members);
-        membersArray.forEach((id) => {
-          if (id == currentUserID) {
-            setGroupsData((prevGroups) => [
-              ...prevGroups,
-              { ...group.val(), groupId: group.key },
-            ]);
+      ref_group.on("value", (snapshot) => {
+        const groups = [];
+        snapshot.forEach((group) => {
+          const membersArray = Object.keys(group.val().members);
+          if (membersArray.includes(currentUserID)) {
+            groups.push({ ...group.val(), groupId: group.key });
           }
         });
+        setGroupsData(groups);
       });
     };
     fetchGroups();
-  }, [modalVisible]);
+  }, [modalVisible, currentUserID]);
 
   return (
     <PaperProvider>
@@ -58,20 +58,16 @@ export default function Groupe({ navigation }) {
           }}
           data={groupsData}
           keyExtractor={(item) => item.groupId}
-          renderItem={({ item }) => (
-            <View>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("groupChat", {
-                    groupId: item.groupId,
-                    groupName: item.groupName,
-                  })
-                }
-              >
-                <Text>{item.groupName}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          renderItem={({ item }) => {
+            return (
+              <GroupItem
+                groupName={item.groupName}
+                id={item.groupId}
+                url={item.groupImage}
+                navigate={navigation}
+              />
+            );
+          }}
         />
       </View>
       <Button title="create group" onPress={() => setModalVisible(true)} />
